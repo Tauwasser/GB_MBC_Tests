@@ -1,3 +1,12 @@
+/*           7          6        5       4       3       2       1       0 
+ * Port A:  D4         D3       D2      D1      D0      A15     A14     A13
+ * Port B:                                                              LED
+ * Port C:  #RAM_CS    AA14    AA13    RA18    RA17    RA16    RA15    RA14
+ * Port D:   RAM_CS #ROM_CS  #RESET
+ * Port E:                                             nWR     nRD     nCS 
+ *
+ */
+
 #define A_MASK  (1u << PA2 | 1u << PA1 | 1u << PA0)
 #define A_SHIFT PA0
 
