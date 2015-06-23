@@ -37,48 +37,69 @@
 #include "delay_.h"
 
 inline void assertCS(void) {
-	IOPORTE->out &= ~(nCS);
+	IOPORTE->out &= ~(nCS); // disable PU
+	IOPORTE->dir |= nCS;    // drive '0'
 }
 
 inline void deassertCS(void) {
-	IOPORTE->out |= nCS;
+	IOPORTE->out |= nCS;    // drive '1'
+	IOPORTE->dir &= ~(nCS); // enable PU
 }
 
 inline void assertWR(void) {
-	IOPORTE->out &= ~(nWR);
+	IOPORTE->out &= ~(nWR); // disable PU
+	IOPORTE->dir |= nWR;    // drive '0'
 }
 
 inline void deassertWR(void) {
-	IOPORTE->out |= nWR;
+	IOPORTE->out |= nWR;    // drive '1'
+	IOPORTE->dir &= ~(nWR); // enable PU
 }
 
 inline void assertRD(void) {
-	IOPORTE->out &= ~(nRD);
+	IOPORTE->out &= ~(nRD); // disable PU
+	IOPORTE->dir |= nRD;    // drive '0'
 }
 
 inline void deassertRD(void) {
-	IOPORTE->out |= nRD;
+	IOPORTE->out |= nRD;    // drive '1'
+	IOPORTE->dir &= ~(nRD); // enable PU
 }
 
 inline void assertRST(void) {
-	IOPORTC->out &= ~nRST;
-	IOPORTC->dir |= nRST;
+	IOPORTC->out &= ~nRST;  // disable PU
+	IOPORTC->dir |= nRST;   // drive '0'
 }
 
 inline void deassertRST(void) {
-	IOPORTC->dir &= ~nRST;
-	IOPORTC->out |= nRST;
+	IOPORTC->dir &= ~nRST;  // float
+	IOPORTC->out |= nRST;   // enable PU
 }
 
 inline void putAddr(uint16_t addr) {
-	uint8_t addr_tmp = (addr >> 13) & 0x06;
+	uint8_t addr_tmp = (addr >> 13) & 0x06; // mask A15 A14
 	if (addr & 0x0100)
-		addr_tmp |= 0x01u;
+		addr_tmp |= 0x01u; // or A8
 	
-	IOPORTD->out = ((addr << A_LO_SHIFT) & A_LO_MASK) | (IOPORTD->out & ~A_LO_MASK);
-	IOPORTC->out &= ~A_MID_MASK;
-	IOPORTC->out |= ((addr >> 6) << A_MID_SHIFT) & A_MID_MASK;
-	IOPORTA->out = (IOPORTA->out & D_MASK) | ((addr_tmp << A_HI_SHIFT) & A_HI_MASK);
+	uint8_t addr_l = (addr << A_LO_SHIFT) & A_LO_MASK;
+	uint8_t addr_m = ((addr >> 6) << A_MID_SHIFT) & A_MID_MASK;
+	uint8_t addr_h = (addr_tmp << A_HI_SHIFT) & A_HI_MASK;
+	
+	// addr_l
+	IOPORTD->out = addr_l | (IOPORTD->out & ~A_LO_MASK); // put PUs in place
+	IOPORTD->dir |= A_LO_MASK;                           // help bus up
+	IOPORTD->dir = ~addr_l;                              // only drive '0' bits
+	
+	// addr_m
+	IOPORTC->out = addr_m | (IOPORTC->out & ~A_MID_MASK); // put PUs in place
+	IOPORTC->dir |= A_MID_MASK;                           // help bus up
+	IOPORTC->dir &= ~addr_m;                              // drive '0' bits
+	
+	// addr_h
+	IOPORTA->out = addr_h | (IOPORTA->out & ~A_HI_MASK); // put PUs in place
+	IOPORTA->dir |= A_HI_MASK;                           // help bus up
+	IOPORTA->dir &= ~addr_h;                             // drive '0' bits
+	
 }
 
 inline void putAddrCS(uint16_t addr) {
@@ -89,13 +110,26 @@ inline void putAddrCS(uint16_t addr) {
 }
 
 inline void putData(uint8_t data) {
-	IOPORTA->out = ((data << D_SHIFT) & D_MASK) | (IOPORTA->out & A_HI_MASK);
-	IOPORTA->dir = D_MASK | A_HI_MASK;
+	uint8_t d = (data << D_SHIFT) & D_MASK;
+	IOPORTA->out = d | (IOPORTA->out & A_HI_MASK); // put PUs in place
+	IOPORTA->dir |= D_MASK;                        // help bus up
+	IOPORTA->dir &= ~d;                            // drive '0' bits
 };
 
 inline void floatData(void) {
-	IOPORTA->out = D_MASK | (IOPORTA->out & A_HI_MASK);
-	IOPORTA->dir = A_HI_MASK;
+	IOPORTA->out |= D_MASK;  // PU
+	IOPORTA->dir &= ~D_MASK; // float
+}
+
+inline void floatAddr(void) {
+	IOPORTA->out |= A_HI_MASK;  // PU
+	IOPORTA->dir &= ~A_HI_MASK; // float
+	
+	IOPORTC->out |= A_MID_MASK;  // PU
+	IOPORTC->dir &= ~A_MID_MASK; // float
+	
+	IOPORTD->out |= A_LO_MASK;  // PU
+	IOPORTD->dir &= ~A_LO_MASK; // float
 }
 
 inline uint8_t getRA(void) {
@@ -233,25 +267,25 @@ int main(void)
 		  0 |   0 |   0,
 	};
 	
-	// PU unused, PU on D3..D0, drive A15..A14, A8
-	IOPORTA->out = D_MASK | (1u << PA4);
-	IOPORTA->dir = A_HI_MASK;
+	// PU unused, PU on D3..D0, PU A15..A14, A8
+	IOPORTA->out = D_MASK | (1u << PA4) | A_HI_MASK;
+	IOPORTA->dir = 0x00;
 	
 	// PU all pins, except LED
 	IOPORTB->out = ~(1u << PB0);
 	IOPORTB->dir = (1u << PB0);
 	
-	// PU on nROM_CS, #RESET, RA17..RA14, drive A7..A6
-	IOPORTC->out = RA_MASK | nRST | nROM_CS;
-	IOPORTC->dir = A_MID_MASK;
+	// PU on nROM_CS, #RESET, RA17..RA14, PU A7..A6
+	IOPORTC->out = RA_MASK | nRST | nROM_CS | A_MID_MASK;
+	IOPORTC->dir = 0x00u;
 	
-	// drive all pins
+	// PU all pins
 	IOPORTD->out = 0xFFu;
-	IOPORTD->dir = 0xFFu;
+	IOPORTD->dir = 0x00u;
 	
-	// Drive nWR, nRD, nCS
+	// PU nWR, nRD, nCS
 	IOPORTE->out = nWR | nRD | nCS;
-	IOPORTE->dir = nWR | nRD | nCS;
+	IOPORTE->dir = 0x00u;
 	
 	uart0Init(UART_BAUD(125000u));
 	
@@ -265,19 +299,6 @@ int main(void)
 		while ((command = uart0Getch()) == -1);
 		
 		switch (command) {
-		
-		case 'u':
-			// Unknown Pins drive test
-			IOPORTC->out &= ~nROM_CS;
-			IOPORTC->dir |= nROM_CS;
-			uart0Puts_p(0);
-			while (uart0Getch() == -1);
-			
-			IOPORTC->out |= nROM_CS;
-			IOPORTC->dir &= ~(nROM_CS);
-			uart0Puts_p(1);
-			break;
-		
 		case 't':
 			
 			assertRST();
@@ -316,11 +337,13 @@ int main(void)
 				delay_us(1);
 				deassertRST();
 				
-				IOPORTE->out = perm[i];
+				IOPORTE->out = perm[i];  // PU
+				IOPORTE->dir = ~perm[i]; // drive '0'
 				
 				printCS_Data(&printnROM_CS);
 				
-				IOPORTE->out = nWR | nRD | nCS;
+				IOPORTE->out = nWR | nRD | nCS; // drive '1'
+				IOPORTE->dir = 0x00u;           // float
 				
 			}
 			
@@ -332,11 +355,13 @@ int main(void)
 			assertRST();
 			for (i = 0; i < sizeof(perm); i++) {
 								
-				IOPORTE->out = perm[i];
+				IOPORTE->out = perm[i];  // PU
+				IOPORTE->dir = ~perm[i]; // drive '0'
 				
 				printCS_Data(&printnROM_CS);
 				
-				IOPORTE->out = nWR | nRD | nCS;
+				IOPORTE->out = nWR | nRD | nCS; // drive '1'
+				IOPORTE->dir = 0x00u;           // float
 				
 			}
 			break;
@@ -344,6 +369,7 @@ int main(void)
 		case 'c':
 	
 			// test RAM
+			// write IDs to power-of-two locations
 			uart0Puts_p(2);
 	
 			assertRST();
@@ -393,7 +419,9 @@ int main(void)
 			break;
 		
 		case 'e':
-				
+			
+			// init RAM to all 0x0F
+			
 			// test RAM
 			uart0Puts_p(2);
 				
@@ -415,6 +443,10 @@ int main(void)
 			break;
 		
 		case 'f':
+			
+			// Write to RAM
+			// f [hi] [lo] [data]
+			// hi & lo = 0000 - 0x3FF (allow trying to write out of bounds)
 			
 			// Enable SRAM
 			writeMBC2(0x0000u, 0x0Au);
@@ -442,6 +474,8 @@ int main(void)
 			
 		case 'h':
 			
+			// Test which Address bits affect RB0 / RB1 mapping
+			// include A8
 			for (addr = 0x0000u; ; addr += 0x4000u) {
 				
 				assertRST();
@@ -482,6 +516,41 @@ int main(void)
 				addr &= ~(0x0100u);
 				
 			}
+			break;
+			
+		case 'k':
+		
+			// float all pins
+			IOPORTA->dir &= ~A_HI_MASK & ~D_MASK;
+			IOPORTA->out &= ~A_HI_MASK & ~D_MASK;
+			
+			IOPORTC->dir &= ~RA_MASK & ~A_MID_MASK & ~nROM_CS & ~nRST;
+			IOPORTC->out &= ~RA_MASK & ~A_MID_MASK & ~nROM_CS & ~nRST;
+			
+			IOPORTD->dir &= ~A_LO_MASK;
+			IOPORTD->out &= ~A_LO_MASK;
+			
+			IOPORTE->dir &= ~nCS & ~nRD & ~nWR;
+			IOPORTE->out &= ~nCS & ~nRD & ~nWR;
+			
+			break;
+		
+		case 'l':
+		
+			// all signals back to default
+			IOPORTA->out |= A_HI_MASK | D_MASK;
+			IOPORTA->dir &= ~A_HI_MASK & ~D_MASK;
+			
+			deassertRST();
+			IOPORTC->out |= RA_MASK | A_MID_MASK | nROM_CS;
+			IOPORTC->dir |= ~RA_MASK & ~A_MID_MASK & ~nROM_CS;
+		
+			IOPORTD->out |= A_LO_MASK;
+			IOPORTD->dir &= ~A_LO_MASK;
+			
+			IOPORTE->out |= nCS | nRD | nWR;
+			IOPORTE->dir &= ~nCS & ~nRD & ~nWR;
+		
 			break;
 		
 		case 'L':
