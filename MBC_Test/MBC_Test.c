@@ -104,9 +104,10 @@ inline void putAddr(uint16_t addr) {
 
 inline void putAddrCS(uint16_t addr) {
 	putAddr(addr);
-	deassertCS();
 	if (addr >= 0xA000u && addr <= 0xFF00u)
 		assertCS();
+	else
+		deassertCS();
 }
 
 inline void putData(uint8_t data) {
@@ -228,12 +229,16 @@ const char str0[] PROGMEM = "Drive nROM_CS '0'.\n";
 const char str1[] PROGMEM = "Float nROM_CS.\n";
 const char str2[] PROGMEM = "Init RAM.\n";
 const char str3[] PROGMEM = "Print RAM.\n";
+const char str4[] PROGMEM = "Init RAM Sequential.\n";
+const char str5[] PROGMEM = "Read Data 0x";
 
 PGM_P const str_tbl[] PROGMEM = {
 	str0,
 	str1,
 	str2,
 	str3,
+	str4,
+	str5,
 };
 
 void uart0Puts_p(const uint8_t ix) {
@@ -389,6 +394,167 @@ int main(void)
 			
 			// Disable SRAM
 			writeMBC2(0x0000u, 0x00u);
+			break;
+
+		case 's':
+		
+			// test RAM
+			// write IDs to sequential locations
+			uart0Puts_p(4);
+		
+			assertRST();
+			delay_us(1);
+			deassertRST();
+		
+			// Enable SRAM
+			writeMBC2(0x0000u, 0x0Au);
+			j = 0x03;
+			for (addr = 0x0000; addr < 0x10; addr++, j++) {
+			
+				writeMBC2(0xA000 | addr, j);
+			
+			}
+		
+			// Disable SRAM
+			writeMBC2(0x0000u, 0x00u);
+			break;
+			
+		case 'o':
+		
+			assertRST();
+			delay_us(1);
+			deassertRST();
+			
+			// Enable SRAM
+			writeMBC2(0x0000u, 0x0Au);
+			
+			// abuse putData to get PUs
+			putData(0xFFu);
+			
+			putAddrCS(0xA000);
+			assertRD();
+			
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			
+			putAddrCS(0xA001);
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			
+			assertRST();
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			deassertRST();
+			
+			putAddrCS(0xC001);
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			
+			assertRST();
+			putAddrCS(0xC001);
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			deassertRST();
+			
+			putAddrCS(0xC001);
+			assertWR();
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			deassertWR();
+			deassertRD();
+			
+			// Disable SRAM
+			writeMBC2(0x0000u, 0x00u);
+			floatAddr();
+			floatData();
+			break;
+
+		case 'p':
+		
+			assertRST();
+			delay_us(1);
+			deassertRST();
+			
+			// Enable SRAM
+			writeMBC2(0x0000u, 0x0Au);
+			
+			putAddrCS(0xA000);
+			putData(0x0A);
+			assertWR();
+			delay_us(1);
+			deassertWR();
+			// abuse putData to get PUs
+			putData(0xFFu);
+			assertRD();
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			deassertRD();
+			
+			putData(0x0B);
+			assertWR();
+			delay_us(1);
+			putData(0x0C);
+			deassertWR();
+			// abuse putData to get PUs
+			putData(0xFFu);
+			assertRD();
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			deassertRD();
+			
+			putData(0x05);
+			assertWR();
+			delay_us(1);
+			putData(0x0E);
+			
+			assertRD();
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			
+			putData(0x06);
+			
+			delay_us(1);
+			deassertWR();
+			deassertRD();
+			
+			// abuse putData to get PUs
+			putData(0xFFu);
+			assertRD();
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			deassertRD();
+			
+			putAddrCS(0xA000);
+			putData(0x0A);
+			assertWR();
+			delay_us(1);
+			putAddrCS(0xC000);
+			putData(0x0C);
+			deassertWR();
+			
+			putAddrCS(0xA000);
+			// abuse putData to get PUs
+			putData(0xFFu);
+			assertRD();
+			uart0Puts_p(5);
+			write_usart_hex(getData());
+			uart0Puts("\n");
+			deassertRD();
+			
+			// Disable SRAM
+			writeMBC2(0x0000u, 0x00u);
+			floatAddr();
+			floatData();
 			break;
 
 		case 'd':
@@ -551,6 +717,55 @@ int main(void)
 			IOPORTE->out |= nCS | nRD | nWR;
 			IOPORTE->dir &= ~nCS & ~nRD & ~nWR;
 		
+			break;
+			
+		case 'x':
+		
+			// see if 0x4000-0x7FFF range does anything with RA pins
+			writeMBC2(0x2100, 0x0A);
+			writeMBC2(0x4000, 0xFF);
+			putAddrCS(0x0000);
+			printMBC2Status();
+			assertRD();
+			printnROM_CS();
+			uart0Puts("\n");
+			deassertRD();
+			putAddrCS(0x4000);
+			printMBC2Status();
+			assertRD();
+			printnROM_CS();
+			uart0Puts("\n");
+			deassertRD();
+			
+			write_usart_hex(readMBC2(0x4000));
+			
+			writeMBC2(0x2100, 0x0B);
+			writeMBC2(0x4100, 0xFF);
+			putAddrCS(0x0000);
+			printMBC2Status();
+			assertRD();
+			printnROM_CS();
+			uart0Puts("\n");
+			deassertRD();
+			putAddrCS(0x4100);
+			printMBC2Status();
+			assertRD();
+			printnROM_CS();
+			uart0Puts("\n");
+			deassertRD();
+			
+			write_usart_hex(readMBC2(0x4100));
+		
+			break;
+		
+		case 'R':
+		
+			assertRST();
+			break;
+			
+		case 'S':
+			
+			deassertRST();
 			break;
 		
 		case 'L':
