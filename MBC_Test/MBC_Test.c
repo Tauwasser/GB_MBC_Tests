@@ -556,6 +556,51 @@ int main(void)
 			floatAddr();
 			floatData();
 			break;
+			
+		case 'q':
+		
+			// Test output during reset
+		
+			assertRST();
+			delay_us(1);
+			deassertRST();
+			
+			floatData();
+			putData(0xFFu);
+			
+			assertRST();
+			
+			for (addr = 0x0000u; ; addr += 0x4000u) {
+				
+				uart0Puts("0x");
+				write_usart_hex(addr >> 8);
+				write_usart_hex(addr & 0xFFu);
+				uart0Puts(" /// ");
+				
+				write_usart_hex(getData());
+				uart0Puts("\n");
+				
+				addr |= 0x0100u;
+				
+				uart0Puts("0x");
+				write_usart_hex(addr >> 8);
+				write_usart_hex(addr & 0xFFu);
+				uart0Puts(" /// ");
+				
+				write_usart_hex(getData());
+				uart0Puts("\n");
+				
+				if (addr == 0xC100)
+					break;
+					
+				addr &= ~(0x0100u);
+				
+			}
+		
+			deassertRST();
+			floatData();
+		
+			break;			
 
 		case 'd':
 		
