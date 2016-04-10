@@ -565,9 +565,10 @@ int main(void)
 			assertRST();
 			delay_us(1);
 			deassertRST();
-
+			
 			// Enable SRAM
 			writeMBC2(0x0000u, 0x0Au);
+			delay_us(1);
 			
 			for (i = 0x00; i < 0x20u; i++) {
 			
