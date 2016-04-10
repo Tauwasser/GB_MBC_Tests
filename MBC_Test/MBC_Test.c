@@ -1,31 +1,31 @@
 /*           7          6        5       4       3       2       1       0 
- * Port A:  D4         D3       D2      D1      D0      A15     A14     A13
- * Port B:                                                              LED
- * Port C:  #RAM_CS    AA14    AA13    RA18    RA17    RA16    RA15    RA14
- * Port D:   RAM_CS #ROM_CS  #RESET
+ * Port A:  #RESET     D6       D5      D4      D3      D2      D1      D0
+ * Port B:             AA18    AA17    AA16    AA15    AA14    AA13     LED
+ * Port C:             RA20    RA19    RA18    RA17    RA16    RA15    RA14
+ * Port D:  A15        A14     A13     RAM_CS #RAM_CS #ROM_CS
  * Port E:                                             nWR     nRD     nCS 
  *
  */
 
-#define A_MASK  (1u << PA2 | 1u << PA1 | 1u << PA0)
-#define A_SHIFT PA0
+#define A_MASK  (1u << PD7 | 1u << PD6 | 1u << PD5)
+#define A_SHIFT PD5
 
-#define D_MASK  (1u << PA7 | 1u << PA6 | 1u << PA5 | 1u << PA4 | 1u << PA3)
-#define D_SHIFT PA3
+#define D_MASK  (1u << PA6 | 1u << PA5 | 1u << PA4 | 1u << PA3| 1u << PA2 | 1u << PA1 | 1u << PA0)
+#define D_SHIFT PA0
 
-#define RA_MASK  (1u << PC4 | 1u << PC3 | 1u << PC2 | 1u << PC1 | 1u << PC0)
+#define RA_MASK  (1u << PC6 | 1u << PC5 | 1u << PC4 | 1u << PC3 | 1u << PC2 | 1u << PC1 | 1u << PC0)
 #define RA_SHIFT PC0
-#define AA_MASK  (1u << PC6 | 1u << PC5)
-#define AA_SHIFT PC5
-#define nRAM_CS  (1u << PC7)
+#define AA_MASK  (1u << PB6 | 1u << PB5 | 1u << PB4 | 1u << PB3 | 1u << PB2 | 1u << PB1)
+#define AA_SHIFT PB1
 
 #define nWR (1u << PE2)
 #define nRD (1u << PE1)
 #define nCS (1u << PE0)
 
-#define nRST    (1u << PD5)
-#define nROM_CS (1u << PD6)
-#define RAM_CS  (1u << PD7)
+#define nRST    (1u << PA7)
+#define nROM_CS (1u << PD2)
+#define nRAM_CS (1u << PD3)
+#define RAM_CS  (1u << PD4)
 
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -60,21 +60,21 @@ inline void deassertRD(void) {
 }
 
 inline void assertRST(void) {
-	IOPORTD->out &= ~nRST;
-	IOPORTD->dir |= nRST;
+	IOPORTA->out &= ~nRST;
+	IOPORTA->dir |= nRST;
 }
 
 inline void deassertRST(void) {
-	IOPORTD->dir &= ~nRST;
-	IOPORTD->out |= nRST;
+	IOPORTA->dir &= ~nRST;
+	IOPORTA->out |= nRST;
 }
 
 inline void putAddr(uint16_t addr) {
-	IOPORTA->out = (IOPORTA->out & D_MASK) | ((addr >> 13) & A_MASK);
+	IOPORTD->out = (IOPORTD->out & ~A_MASK) | ((addr >> 8) & A_MASK);
 }
 
 inline void putAddrCS(uint16_t addr) {
-	IOPORTA->out = (IOPORTA->out & D_MASK) | ((addr >> 13) & A_MASK);
+	IOPORTD->out = (IOPORTD->out & ~A_MASK) | ((addr >> 8) & A_MASK);
 	if (addr >= 0xA000u && addr <= 0xFF00u)
 		assertCS();
 	else
@@ -82,13 +82,13 @@ inline void putAddrCS(uint16_t addr) {
 }
 
 inline void putData(uint8_t data) {
-	IOPORTA->out = ((data << D_SHIFT) & D_MASK) | (IOPORTA->out & A_MASK);
-	IOPORTA->dir = D_MASK | A_MASK;
+	IOPORTA->out = ((data << D_SHIFT) & D_MASK) | (IOPORTA->out & ~D_MASK);
+	IOPORTA->dir |= D_MASK;
 };
 
 inline void floatData(void) {
-	IOPORTA->out = D_MASK | (IOPORTA->out & A_MASK);
-	IOPORTA->dir = A_MASK;
+	IOPORTA->out |= D_MASK; // PU
+	IOPORTA->dir &= ~D_MASK;
 }
 
 inline uint8_t getRA(void) {
@@ -96,11 +96,11 @@ inline uint8_t getRA(void) {
 }
 
 inline uint8_t getAA(void) {
-	return (IOPORTC->in & AA_MASK) >> AA_SHIFT;
+	return (IOPORTB->in & AA_MASK) >> AA_SHIFT;
 }
 
 inline uint8_t getnRAM_CS(void) {
-	return (IOPORTC->in & nRAM_CS);
+	return (IOPORTD->in & nRAM_CS);
 }
 
 inline uint8_t getRAM_CS(void) {
@@ -111,7 +111,7 @@ inline uint8_t getnROM_CS(void) {
 	return (IOPORTD->in & nROM_CS);
 }
 
-void writeMBC1(uint16_t addr, uint8_t data) {
+void writeMMM01(uint16_t addr, uint8_t data) {
 	
 	putAddrCS(addr);
 	putData(data);
@@ -133,13 +133,12 @@ void write_usart_hex(const uint8_t num) {
 	
 }
 
-void printMBC1Status(void) {
+void printMMM01Status(void) {
 	
 	uart0Puts("AA: 0x");
 	write_usart_hex(getAA());
 	uart0Puts(" RA: 0x");
 	write_usart_hex(getRA());
-	uart0Puts("\n");
 }
 
 void printnROM_CS(void){
@@ -182,7 +181,7 @@ void printCS_Data(void(*fun)(void)) {
 	
 }
 
-const char str0[] PROGMEM = "Drive nROM_CS '0', RAM_CS '1'.\n";
+const char str0[] PROGMEM = "> Pin Status\n";
 const char str1[] PROGMEM = "Float RAM_CS, nROM_CS.\n";
 const char str2[] PROGMEM = "Disable RAM, RAM Bank 0x01, Mode 0 (16Mb/8kB)\n";
 const char str3[] PROGMEM = "Enable RAM, RAM Bank 0x01, Mode 0 (16Mb/8kB)\n";
@@ -233,21 +232,21 @@ int main(void)
 		  0 |   0 |   0,
 	};
 	
-	// PU on D4..D0, drive A15..A13
-	IOPORTA->out = D_MASK;
-	IOPORTA->dir = A_MASK;
+	// PU on D6..D0, drive nRST
+	IOPORTA->out = nRST | D_MASK;
+	IOPORTA->dir = nRST;
 	
 	// PU all pins, except LED
 	IOPORTB->out = ~(1u << PB0);
 	IOPORTB->dir = (1u << PB0);
 	
-	// PU on nRAM_CS, AA14..AA13, RA18..RA14
+	// PU on all pins
 	IOPORTC->out = 0xFFu;
 	IOPORTC->dir = 0x00u;
 	
-	// PU nRST, PU unused, PU RXD
-	IOPORTD->out = nRST | ~(RAM_CS | nROM_CS) | (1u << PD0);
-	IOPORTD->dir = (1u << PD1);
+	// PU unused, PU RXD, drive TXD, A15..A13
+	IOPORTD->out = 0xFE | (1u << PD0);
+	IOPORTD->dir = (1u << PD1) | A_MASK;
 	
 	// Drive nWR, nRD, nCS
 	IOPORTE->out = nWR | nRD | nCS;
@@ -257,7 +256,7 @@ int main(void)
 	
 	sei();
 	
-	uart0Puts("MBC1 Test\n");
+	uart0Puts("MMM01 Test\n");
 	
     while(1)
     {
@@ -266,18 +265,53 @@ int main(void)
 		
 		switch (command) {
 		
-		case 'u':
-			// Unknown Pins drive test
-			IOPORTD->out |= RAM_CS;
-			IOPORTD->dir |= RAM_CS | nROM_CS;
-			uart0Puts_p(0);
-			while (uart0Getch() == -1);
+		case 's':
+		
+			printMMM01Status();
+			printnROM_CS();
+			print_bothRAM_CS();
+			uart0Puts("\n");
+			break;
 			
-			IOPORTD->out &= ~RAM_CS;
-			IOPORTD->dir &= ~(RAM_CS | nROM_CS);
-			uart0Puts_p(1);
+		case 'S':
+			
+			// Get Pin Status
+			uart0Puts_p(0);
+			
+			for (addr = 0x0000u; addr <= 0xE000; addr+= 0x2000u) {
+		
+				putAddrCS(addr);
+				uart0Puts("0x");
+				write_usart_hex((addr >> 8) & 0xFFu);
+				write_usart_hex(addr & 0xFFu);
+				uart0Puts(": ");
+				printMMM01Status();
+				printnROM_CS();
+				print_bothRAM_CS();
+				
+				uart0Puts("\n");
+				
+				if (addr == 0xE000)
+					break;
+			}
+			break;
+			
+		case 'A':
+		
+			while ((int8_t)(i = uart0Getch()) == -1);
+			putAddrCS(i << 8);
 			break;
 		
+		case 'R':
+		
+			assertRD();
+			break;
+			
+		case 'r':
+			
+			deassertRD();
+			break;
+			
 		case 't':
 			
 			assertRST();
@@ -286,19 +320,21 @@ int main(void)
 			
 			for (i = 0x00u; i < 0x20u; i++) {
 				
-				writeMBC1(0x2000u, i);
+				writeMMM01(0x2000u, i);
 				
 				putAddrCS(0x0000u);
 				uart0Puts("RB 0x");
 				write_usart_hex(i);
 				uart0Puts(" RB0: ");
-				printMBC1Status();
+				printMMM01Status();
+				uart0Puts("\n");
 				
 				putAddrCS(0x4000u);
 				uart0Puts("RB 0x");
 				write_usart_hex(i);
 				uart0Puts(" RB1: ");
-				printMBC1Status();
+				printMMM01Status();
+				uart0Puts("\n");
 				
 			}
 			
@@ -335,9 +371,9 @@ int main(void)
 				delay_us(1);
 				deassertRST();
 				
-				writeMBC1(0x4000u, 0x01u);
-				writeMBC1(0x0000u, 0x00u);
-				writeMBC1(0x6000u, 0x00u);
+				writeMMM01(0x4000u, 0x01u);
+				writeMMM01(0x0000u, 0x00u);
+				writeMMM01(0x6000u, 0x00u);
 				
 				IOPORTE->out = perm[i];
 				
@@ -354,9 +390,9 @@ int main(void)
 				delay_us(1);
 				deassertRST();
 				
-				writeMBC1(0x4000u, 0x01u);
-				writeMBC1(0x0000u, 0x0Au);
-				writeMBC1(0x6000u, 0x00u);
+				writeMMM01(0x4000u, 0x01u);
+				writeMMM01(0x0000u, 0x0Au);
+				writeMMM01(0x6000u, 0x00u);
 				
 				IOPORTE->out = perm[i];
 				
@@ -373,9 +409,9 @@ int main(void)
 				delay_us(1);
 				deassertRST();
 				
-				writeMBC1(0x4000u, 0x01u);
-				writeMBC1(0x0000u, 0x00u);
-				writeMBC1(0x6000u, 0x01u);
+				writeMMM01(0x4000u, 0x01u);
+				writeMMM01(0x0000u, 0x00u);
+				writeMMM01(0x6000u, 0x01u);
 				
 				IOPORTE->out = perm[i];
 				
@@ -392,9 +428,9 @@ int main(void)
 				delay_us(1);
 				deassertRST();
 				
-				writeMBC1(0x4000u, 0x01u);
-				writeMBC1(0x0000u, 0x0Au);
-				writeMBC1(0x6000u, 0x01u);
+				writeMMM01(0x4000u, 0x01u);
+				writeMMM01(0x0000u, 0x0Au);
+				writeMMM01(0x6000u, 0x01u);
 				
 				IOPORTE->out = perm[i];
 				
@@ -414,15 +450,15 @@ int main(void)
 			deassertRST();
 			
 			// Mode 4M/256k
-			writeMBC1(0x6000u, 0x01u);
+			writeMMM01(0x6000u, 0x01u);
 			
 			putAddr(0x4000u);
 			putData(0x02u);
-			printMBC1Status();
+			printMMM01Status();
 			assertWR();
-			printMBC1Status();
+			printMMM01Status();
 			deassertWR();
-			printMBC1Status();
+			printMMM01Status();
 			floatData();
 			break;
 		
@@ -434,18 +470,18 @@ int main(void)
 			deassertRST();
 			
 			// Mode 4M/256k
-			writeMBC1(0x6000u, 0x01u);
+			writeMMM01(0x6000u, 0x01u);
 			
 			putAddr(0x4000u);
 			putData(0x02u);
-			printMBC1Status();
+			printMMM01Status();
 			assertWR();
-			printMBC1Status();
+			printMMM01Status();
 			putAddr(0xC000u);
-			printMBC1Status();
+			printMMM01Status();
 			floatData();
 			deassertWR();
-			printMBC1Status();
+			printMMM01Status();
 			break;
 			
 		case 'e':
@@ -455,11 +491,11 @@ int main(void)
 				assertRST();
 				deassertRST();
 				
-				writeMBC1(addr, 0x15u);
+				writeMMM01(addr, 0x15u);
 				putAddr(0x0000);
-				printMBC1Status();
+				printMMM01Status();
 				putAddr(0x4000);
-				printMBC1Status();
+				printMMM01Status();
 				
 				if (addr == 0xE000u)
 					break;
@@ -476,7 +512,7 @@ int main(void)
 								
 				IOPORTE->out = perm[i];
 				
-				printCS_Data(&printMBC1Status);
+				printCS_Data(&printMMM01Status);
 				
 				IOPORTE->out = nWR | nRD | nCS;
 				
@@ -486,9 +522,9 @@ int main(void)
 		case 'g':
 		
 			assertRST();
-			writeMBC1(0x4000u, 0x01u);
-			writeMBC1(0x0000u, 0x0Au);
-			writeMBC1(0x6000u, 0x00u);
+			writeMMM01(0x4000u, 0x01u);
+			writeMMM01(0x0000u, 0x0Au);
+			writeMMM01(0x6000u, 0x00u);
 			
 			for (i = 0; i < sizeof(perm); i++) {
 				
