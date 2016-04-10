@@ -75,9 +75,10 @@ inline void putAddr(uint16_t addr) {
 
 inline void putAddrCS(uint16_t addr) {
 	IOPORTA->out = (IOPORTA->out & D_MASK) | ((addr >> 13) & A_MASK);
-	deassertCS();
 	if (addr >= 0xA000u && addr <= 0xFF00u)
 		assertCS();
+	else
+		deassertCS();
 }
 
 inline void putData(uint8_t data) {
