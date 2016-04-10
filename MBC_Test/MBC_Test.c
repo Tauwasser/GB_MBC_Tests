@@ -654,12 +654,12 @@ int main(void)
 				write_usart_hex(addr & 0xFFu);
 				uart0Puts(" /// ");
 				
-				putAddr(0x0000u);
 				writeMBC2(addr, 0x15u);
+				
+				putAddr(0x0000u);
 				printMBC2Status();
 				
 				putAddr(0x4000u);
-				writeMBC2(addr, 0x15u);
 				printMBC2Status();
 				
 				addr |= 0x0100u;
@@ -669,12 +669,12 @@ int main(void)
 				write_usart_hex(addr & 0xFFu);
 				uart0Puts(" /// ");
 				
-				putAddr(0x0000u);
 				writeMBC2(addr, 0x15u);
+				
+				putAddr(0x0000u);
 				printMBC2Status();
 			
 				putAddr(0x4000u);
-				writeMBC2(addr, 0x15u);
 				printMBC2Status();
 				
 				if (addr == 0xC100)
