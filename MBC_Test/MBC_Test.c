@@ -87,7 +87,6 @@ inline void putData(uint8_t data) {
 };
 
 inline void floatData(void) {
-	IOPORTA->out |= D_MASK; // PU
 	IOPORTA->dir &= ~D_MASK;
 }
 
@@ -232,8 +231,8 @@ int main(void)
 		  0 |   0 |   0,
 	};
 	
-	// PU on D6..D0, drive nRST
-	IOPORTA->out = nRST | D_MASK;
+	// no PU on D6..D0 (MMM01 has PD), drive nRST
+	IOPORTA->out = nRST;
 	IOPORTA->dir = nRST;
 	
 	// PU all pins, except LED
