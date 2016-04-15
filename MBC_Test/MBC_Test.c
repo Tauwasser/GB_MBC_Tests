@@ -220,6 +220,35 @@ void uart0Puts_p(const uint8_t ix) {
 	
 }
 
+struct mmm01_settings {
+	/* R0 */
+	uint8_t ram_lock  : 4;
+	uint8_t ramb_mask : 2;
+	uint8_t latch     : 1;
+	uint8_t zero3     : 1;
+	/* R1 */
+	uint8_t romb      : 5;
+	uint8_t romb_hi   : 2;
+	uint8_t zero2     : 1;
+	/* R2 */
+	uint8_t ramb      : 2;
+	uint8_t ramb_hi   : 4;
+	uint8_t mode_lock : 1;
+	uint8_t zero1     : 1;
+	/* R3 */
+	uint8_t mode      : 1;
+	uint8_t unk       : 1;
+	uint8_t romb_mask : 4;
+	uint8_t mux       : 1;
+	uint8_t zero0     : 1;
+};
+
+int mmm01_check_map(struct mmm01_settings *s) {
+	
+	return 0;
+	
+}
+
 int main(void)
 {
 	
@@ -574,6 +603,46 @@ int main(void)
 				
 			}
 		
+			break;
+		
+		case 'x':
+			{
+				struct mmm01_settings settings;
+				memset((void*)&settings, 0x00, sizeof(settings));
+				settings.ram_lock = 0x0Au;
+				settings.latch = 0x01u;
+				settings.ramb_mask = 0x02u;
+				
+				settings.romb = 0x15u;
+				settings.romb_hi = 0x02u;
+				
+				settings.ramb = 0x03u;
+				settings.ramb_hi = 0x05u;
+				settings.mode_lock = 0x00u;
+				
+				settings.mode = 0x01u;
+				settings.romb_mask = 0x08u;
+				settings.mux = 0x00u;
+				
+				uint8_t *ptr = (uint8_t*) &settings;
+				uart0Putch(ptr[0]);
+				uart0Putch(ptr[1]);
+				uart0Putch(ptr[2]);
+				uart0Putch(ptr[3]);
+				
+				writeMMM01(0x6000, ptr[3]);
+				writeMMM01(0x4000, ptr[2]);
+				writeMMM01(0x2000, ptr[1]);
+				writeMMM01(0x0000, ptr[0]);
+				
+				if (mmm01_check_map(&settings))
+					uart0Puts("Fail");
+				else
+					uart0Puts("Pass");
+				
+				printMMM01Status();
+				
+			}
 			break;
 		
 		case 'L':
