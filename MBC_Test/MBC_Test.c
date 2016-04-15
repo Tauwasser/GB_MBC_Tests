@@ -188,6 +188,10 @@ const char str4[] PROGMEM = "Disable RAM, RAM Bank 0x01, Mode 1 (4Mb/32kB)\n";
 const char str5[] PROGMEM = "Enable RAM, RAM Bank 0x01, Mode 1 (4Mb/32kB)\n";
 const char str6[] PROGMEM = "Latch Test\n";
 const char str7[] PROGMEM = "Reg vs Latch\n";
+const char str8[] PROGMEM = "> Enable SRAM\n";
+const char str9[] PROGMEM = "> Disable SRAM\n";
+const char str10[] PROGMEM = "> Assert RESET\n";
+const char str11[] PROGMEM = "> Deassert RESET\n";
 
 PGM_P const str_tbl[] PROGMEM = {
 	str0,
@@ -198,6 +202,10 @@ PGM_P const str_tbl[] PROGMEM = {
 	str5,
 	str6,
 	str7,
+	str8,
+	str9,
+	str10,
+	str11
 };
 
 void uart0Puts_p(const uint8_t ix) {
@@ -216,8 +224,8 @@ int main(void)
 {
 	
 	int16_t command;
-	uint8_t i;
-	uint8_t j;
+	int16_t i;
+	int16_t j;
 	uint16_t addr;
 	
 	uint8_t perm[8] = {
@@ -264,15 +272,7 @@ int main(void)
 		
 		switch (command) {
 		
-		case 's':
-		
-			printMMM01Status();
-			printnROM_CS();
-			print_bothRAM_CS();
-			uart0Puts("\n");
-			break;
-			
-		case 'S':
+		case 'T':
 			
 			// Get Pin Status
 			uart0Puts_p(0);
@@ -297,8 +297,20 @@ int main(void)
 			
 		case 'A':
 		
-			while ((int8_t)(i = uart0Getch()) == -1);
+			while ((i = uart0Getch()) == -1);
 			putAddrCS(i << 8);
+			break;
+			
+		case 'U':
+		
+			uart0Puts_p(8);
+			writeMMM01(0x0000, 0x0A);
+			break;
+			
+		case 'u':
+		
+			uart0Puts_p(9);
+			writeMMM01(0x0000, 0x00);
 			break;
 		
 		case 'R':
@@ -307,8 +319,35 @@ int main(void)
 			break;
 			
 		case 'r':
-			
+		
 			deassertRD();
+			break;
+		
+		case 'S':
+		
+			uart0Puts_p(10);
+			assertRST();
+			break;
+		
+		case 's':
+		
+			uart0Puts_p(11);
+			deassertRST();
+			break;
+		
+		case 'p':
+		
+			while ((i = uart0Getch()) == -1);
+			while ((j = uart0Getch()) == -1);
+			addr = i << 8;
+			
+			uart0Puts("> 0x");
+			write_usart_hex(i);
+			write_usart_hex(0x00);
+			uart0Puts(" <= ");
+			write_usart_hex(j);
+			uart0Puts("\n");
+			writeMMM01(addr, j);
 			break;
 			
 		case 't':
