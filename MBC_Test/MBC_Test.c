@@ -199,6 +199,9 @@ const char str8[] PROGMEM = "> Enable SRAM\n";
 const char str9[] PROGMEM = "> Disable SRAM\n";
 const char str10[] PROGMEM = "> Assert RESET\n";
 const char str11[] PROGMEM = "> Deassert RESET\n";
+const char str12[] PROGMEM = "> MMM01 Settings\n R0 0x%h\n R1 0x%h\n R2 0x%h\n R3 0x%h\n";
+const char str13[] PROGMEM = "> 0x%H <= %h\n";
+const char str14[] PROGMEM = "> 0x%H: AA 0x%h RA 0x%H expect AA 0x%h RA 0x%H\n";
 
 PGM_P const str_tbl[] PROGMEM = {
 	str0,
@@ -212,7 +215,10 @@ PGM_P const str_tbl[] PROGMEM = {
 	str8,
 	str9,
 	str10,
-	str11
+	str11,
+	str12,
+	str13,
+	str14
 };
 
 void uart0Puts_p(const uint8_t ix) {
@@ -302,6 +308,30 @@ struct mmm01_settings {
 	uint8_t mux       : 1;
 	uint8_t zero0     : 1;
 };
+
+void print_MMM01_Settings(struct mmm01_settings *s) {
+	uint8_t *p = (uint8_t*) s;
+	uart0Printf_p(12, p[0], p[1], p[2], p[3]);
+}
+
+uint16_t mmm01_check_getRA(struct mmm01_settings *s, uint16_t addr, uint8_t romb, uint8_t ramb) {
+	
+	/* MBC1 Mode                     4Mbit: keep                16Mbit: zero */
+	uint8_t ramb_masked = (s->mode ? (ramb & 0x03u) & ~(s->ramb_mask) : 0x00u);
+	uint8_t romb_masked = (addr & (1 << 14) ? (romb & 0x1Fu) & ~(s->romb_mask << 1) : 0x00u);
+	/*                       Mux: RA22..RA21 |                                    AA14..AA13 | ROMBASE (pre-map ROMB & ROMB_MASK)   Reg:  RA22..RA21      |       RA20..RA19 | ROMBASE (pre-map ROMB & ROMB_MASK) */
+	uint16_t ra = (s->mux ? (s->romb_hi << 7 | ((s->ramb & s->ramb_mask) | ramb_masked) << 5 | (s->romb & s->romb_mask << 1))          : (s->romb_hi << 7 | s->romb_mid << 5 | (s->romb & s->romb_mask << 1)));
+	return ra | romb_masked;
+}
+
+uint8_t mmm01_check_getAA(struct mmm01_settings *s, uint16_t addr, uint8_t romb, uint8_t ramb) {
+	
+	/* MBC1 Mode                     4Mbit: keep                16Mbit: zero */
+	uint8_t ramb_masked = (s->mode ? (ramb & 0x03u) & ~(s->ramb_mask) : 0x00u);
+	/*                  Mux:     AA16..AA15 | RA20..RA19  Reg:        AA16..AA15 | RAMBASE | AA14..AA13 */
+	uint8_t aa = (s->mux ? (s->ramb_hi << 2 | s->romb_mid)   :  (s->ramb_hi << 2 | s->ramb | ramb_masked));
+	return aa;
+}
 
 int mmm01_check_map(struct mmm01_settings *s) {
 	
@@ -430,12 +460,7 @@ int main(void)
 			while ((j = uart0Getch()) == -1);
 			addr = i << 8;
 			
-			uart0Puts("> 0x");
-			write_usart_hex(i);
-			write_usart_hex(0x00);
-			uart0Puts(" <= ");
-			write_usart_hex(j);
-			uart0Puts("\n");
+			uart0Printf_p(13, addr, j);
 			writeMMM01(addr, j);
 			break;
 			
@@ -686,10 +711,7 @@ int main(void)
 				settings.mux = 0x00u;
 				
 				uint8_t *ptr = (uint8_t*) &settings;
-				uart0Putch(ptr[0]);
-				uart0Putch(ptr[1]);
-				uart0Putch(ptr[2]);
-				uart0Putch(ptr[3]);
+				print_MMM01_Settings(&settings);
 				
 				writeMMM01(0x2000, ptr[1]);
 				writeMMM01(0x6000, ptr[3]);
