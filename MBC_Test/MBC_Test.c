@@ -1,6 +1,6 @@
 /*           7          6        5       4       3       2       1       0 
  * Port A:  #RESET     D6       D5      D4      D3      D2      D1      D0
- * Port B:             AA18    AA17    AA16    AA15    AA14    AA13     LED
+ * Port B:             RA22    RA21    AA16    AA15    AA14    AA13     LED
  * Port C:             RA20    RA19    RA18    RA17    RA16    RA15    RA14
  * Port D:  A15        A14     A13     RAM_CS #RAM_CS #ROM_CS
  * Port E:                                             nWR     nRD     nCS 
@@ -15,7 +15,9 @@
 
 #define RA_MASK  (1u << PC6 | 1u << PC5 | 1u << PC4 | 1u << PC3 | 1u << PC2 | 1u << PC1 | 1u << PC0)
 #define RA_SHIFT PC0
-#define AA_MASK  (1u << PB6 | 1u << PB5 | 1u << PB4 | 1u << PB3 | 1u << PB2 | 1u << PB1)
+#define RA_HI_MASK  (1u << PB6 | 1u << PB5)
+#define RA_HI_SHIFT PB5
+#define AA_MASK  (1u << PB4 | 1u << PB3 | 1u << PB2 | 1u << PB1)
 #define AA_SHIFT PB1
 
 #define nWR (1u << PE2)
@@ -90,8 +92,8 @@ inline void floatData(void) {
 	IOPORTA->dir &= ~D_MASK;
 }
 
-inline uint8_t getRA(void) {
-	return (IOPORTC->in & RA_MASK) >> RA_SHIFT;
+inline uint16_t getRA(void) {
+	return ((IOPORTC->in & RA_MASK) >> RA_SHIFT) | (((IOPORTB->in & RA_HI_MASK) >> RA_HI_SHIFT) << 7);
 }
 
 inline uint8_t getAA(void) {
@@ -134,10 +136,13 @@ void write_usart_hex(const uint8_t num) {
 
 void printMMM01Status(void) {
 	
+	uint16_t ra = getRA();
+	
 	uart0Puts("AA: 0x");
 	write_usart_hex(getAA());
 	uart0Puts(" RA: 0x");
-	write_usart_hex(getRA());
+	write_usart_hex((ra >> 8) & 0xFFu);
+	write_usart_hex(ra & 0xFFu);
 }
 
 void printnROM_CS(void){
@@ -228,11 +233,12 @@ struct mmm01_settings {
 	uint8_t zero3     : 1;
 	/* R1 */
 	uint8_t romb      : 5;
-	uint8_t romb_hi   : 2;
+	uint8_t romb_mid  : 2;
 	uint8_t zero2     : 1;
 	/* R2 */
 	uint8_t ramb      : 2;
-	uint8_t ramb_hi   : 4;
+	uint8_t ramb_hi   : 2;
+	uint8_t romb_hi   : 2;
 	uint8_t mode_lock : 1;
 	uint8_t zero1     : 1;
 	/* R3 */
@@ -614,10 +620,11 @@ int main(void)
 				settings.ramb_mask = 0x02u;
 				
 				settings.romb = 0x15u;
-				settings.romb_hi = 0x02u;
+				settings.romb_mid = 0x02u;
 				
 				settings.ramb = 0x03u;
-				settings.ramb_hi = 0x05u;
+				settings.ramb_hi = 0x01u;
+				settings.romb_hi = 0x01u;
 				settings.mode_lock = 0x00u;
 				
 				settings.mode = 0x01u;
