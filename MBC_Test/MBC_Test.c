@@ -637,9 +637,9 @@ int main(void)
 				uart0Putch(ptr[2]);
 				uart0Putch(ptr[3]);
 				
+				writeMMM01(0x2000, ptr[1]);
 				writeMMM01(0x6000, ptr[3]);
 				writeMMM01(0x4000, ptr[2]);
-				writeMMM01(0x2000, ptr[1]);
 				writeMMM01(0x0000, ptr[0]);
 				
 				if (mmm01_check_map(&settings))
