@@ -136,27 +136,19 @@ void write_usart_hex(const uint8_t num) {
 	
 }
 
+void uart0Printf(const char *ptr, ...);
+void uart0Printf_p(const uint8_t ix, ...);
+
 void printMMM01Status(void) {
-	
-	uint16_t ra = getRA();
-	
-	uart0Puts("AA: 0x");
-	write_usart_hex(getAA());
-	uart0Puts(" RA: 0x");
-	write_usart_hex((ra >> 8) & 0xFFu);
-	write_usart_hex(ra & 0xFFu);
+	uart0Printf_p(3, getAA(), getRA());
 }
 
 void printnROM_CS(void){
-	uart0Puts(" /// nROM_CS: ");
-	getnROM_CS() ? uart0Puts("1") : uart0Puts("0");
+	uart0Printf_p(4, getnROM_CS());
 }
 
 void print_bothRAM_CS(void){
-	uart0Puts(" /// nRAM_CS: ");
-	getnRAM_CS() ? uart0Puts("1") : uart0Puts("0");
-	uart0Puts(" RAM_CS: ");
-	getRAM_CS() ? uart0Puts("1") : uart0Puts("0");
+	uart0Printf_p(5, getnRAM_CS(), getRAM_CS());
 }
 
 void printCS_Data(void(*fun)(void)) {
@@ -164,17 +156,10 @@ void printCS_Data(void(*fun)(void)) {
 	uint16_t addr;
 	
 	for (addr = 0x0000u; ; addr += 0x2000u) {
-				
+
 		putAddr(addr);
-		uart0Puts("0x");
-		write_usart_hex(addr >> 8);
-		write_usart_hex(addr & 0xFFu);
-		uart0Puts(" /// nRD: ");
-		(IOPORTE->out & nRD) ? uart0Puts("1") : uart0Puts("0");
-		uart0Puts(" nWR: ");
-		(IOPORTE->out & nWR) ? uart0Puts("1") : uart0Puts("0");
-		uart0Puts(" nCS: ");
-		(IOPORTE->out & nCS) ? uart0Puts("1") : uart0Puts("0");
+		
+		uart0Printf_p(6, addr, (IOPORTE->out & nRD), (IOPORTE->out & nWR), (IOPORTE->out & nCS));
 		fun();
 		uart0Puts("\n");
 				
@@ -183,25 +168,31 @@ void printCS_Data(void(*fun)(void)) {
 				
 	}
 	
-	uart0Puts("//////////////////\n");
+	uart0Printf_p(7);
 	
 }
 
-const char str0[] PROGMEM = "> Pin Status\n";
-const char str1[] PROGMEM = "Float RAM_CS, nROM_CS.\n";
-const char str2[] PROGMEM = "Disable RAM, RAM Bank 0x01, Mode 0 (16Mb/8kB)\n";
-const char str3[] PROGMEM = "Enable RAM, RAM Bank 0x01, Mode 0 (16Mb/8kB)\n";
-const char str4[] PROGMEM = "Disable RAM, RAM Bank 0x01, Mode 1 (4Mb/32kB)\n";
-const char str5[] PROGMEM = "Enable RAM, RAM Bank 0x01, Mode 1 (4Mb/32kB)\n";
-const char str6[] PROGMEM = "Latch Test\n";
-const char str7[] PROGMEM = "Reg vs Latch\n";
+const char str0[] PROGMEM = "MMM01 Test\n";
+const char str1[] PROGMEM = "> Pin Status\n";
+const char str2[] PROGMEM = "0x%H: ";
+const char str3[] PROGMEM = "AA 0x%h RA 0x%H";
+const char str4[] PROGMEM = " /// nROM_CS %b";
+const char str5[] PROGMEM = " /// nRAM_CS %b RAM_CS %b";
+const char str6[] PROGMEM = "0x%H /// nRD %b nWR %b nCS %b";
+const char str7[] PROGMEM = "//////////////////\n";
 const char str8[] PROGMEM = "> Enable SRAM\n";
 const char str9[] PROGMEM = "> Disable SRAM\n";
 const char str10[] PROGMEM = "> Assert RESET\n";
 const char str11[] PROGMEM = "> Deassert RESET\n";
-const char str12[] PROGMEM = "> MMM01 Settings\n R0 0x%h\n R1 0x%h\n R2 0x%h\n R3 0x%h\n";
-const char str13[] PROGMEM = "> 0x%H <= %h\n";
-const char str14[] PROGMEM = "> 0x%H: AA 0x%h RA 0x%H expect AA 0x%h RA 0x%H\n";
+const char str12[] PROGMEM = "> Assert RD\n";
+const char str13[] PROGMEM = "> Deassert RD\n";
+const char str14[] PROGMEM = "> Assert WR\n";
+const char str15[] PROGMEM = "> Deassert WR\n";
+const char str16[] PROGMEM = "> Assert CS\n";
+const char str17[] PROGMEM = "> Deassert CS\n";
+const char str18[] PROGMEM = "> MMM01 Settings\n R0 0x%h\n R1 0x%h\n R2 0x%h\n R3 0x%h\n";
+const char str19[] PROGMEM = "> 0x%H <= %h\n";
+const char str20[] PROGMEM = "0x%H: AA 0x%h RA 0x%H expect AA 0x%h RA 0x%H\n";
 
 PGM_P const str_tbl[] PROGMEM = {
 	str0,
@@ -218,7 +209,13 @@ PGM_P const str_tbl[] PROGMEM = {
 	str11,
 	str12,
 	str13,
-	str14
+	str14,
+	str15,
+	str16,
+	str17,
+	str18,
+	str19,
+	str20,
 };
 
 void uart0Puts_p(const uint8_t ix) {
@@ -362,7 +359,7 @@ struct mmm01_settings {
 
 void print_MMM01_Settings(struct mmm01_settings *s) {
 	uint8_t *p = (uint8_t*) s;
-	uart0Printf_p(12, p[0], p[1], p[2], p[3]);
+	uart0Printf_p(18, p[0], p[1], p[2], p[3]);
 }
 
 uint16_t mmm01_check_getRA(struct mmm01_settings *s, uint16_t addr, uint8_t romb, uint8_t ramb) {
@@ -400,7 +397,7 @@ int mmm01_check_map(struct mmm01_settings *s) {
 	aa = mmm01_check_getAA(s, 0x0000u, s->romb, s->ramb);
 	ra = mmm01_check_getRA(s, 0x0000u, s->romb, s->ramb);
 	
-	uart0Printf_p(14, 0x0000, ext_aa, ext_ra, aa, ra);
+	uart0Printf_p(20, 0x0000, ext_aa, ext_ra, aa, ra);
 		
 	err |= ext_aa != aa;
 	err |= ext_ra != ra;
@@ -455,7 +452,7 @@ int main(void)
 	
 	sei();
 	
-	uart0Puts("MMM01 Test\n");
+	uart0Puts_p(0);
 	
     while(1)
     {
@@ -467,15 +464,12 @@ int main(void)
 		case 'T':
 			
 			// Get Pin Status
-			uart0Puts_p(0);
+			uart0Puts_p(1);
 			
 			for (addr = 0x0000u; addr <= 0xE000; addr+= 0x2000u) {
 		
 				putAddrCS(addr);
-				uart0Puts("0x");
-				write_usart_hex((addr >> 8) & 0xFFu);
-				write_usart_hex(addr & 0xFFu);
-				uart0Puts(": ");
+				uart0Printf_p(2, addr);
 				printMMM01Status();
 				printnROM_CS();
 				print_bothRAM_CS();
@@ -533,7 +527,7 @@ int main(void)
 			while ((j = uart0Getch()) == -1);
 			addr = i << 8;
 			
-			uart0Printf_p(13, addr, j);
+			uart0Printf_p(19, addr, j);
 			writeMMM01(addr, j);
 			break;
 			
@@ -589,7 +583,7 @@ int main(void)
 			
 		case 'b':
 			// Test (n)RAM_CS
-			uart0Puts_p(2);
+			//uart0Puts_p(2);
 			for (i = 0; i < sizeof(perm); i++) {
 				
 				assertRST();
@@ -608,7 +602,7 @@ int main(void)
 				
 			}
 			
-			uart0Puts_p(3);
+			//uart0Puts_p(3);
 			for (i = 0; i < sizeof(perm); i++) {
 				
 				assertRST();
@@ -627,7 +621,7 @@ int main(void)
 				
 			}
 			
-			uart0Puts_p(4);
+			//uart0Puts_p(4);
 			for (i = 0; i < sizeof(perm); i++) {
 				
 				assertRST();
@@ -646,7 +640,7 @@ int main(void)
 				
 			}
 			
-			uart0Puts_p(5);
+			//uart0Puts_p(5);
 			for (i = 0; i < sizeof(perm); i++) {
 				
 				assertRST();
@@ -669,7 +663,7 @@ int main(void)
 		
 		case 'c':
 		
-			uart0Puts_p(6);
+			//uart0Puts_p(6);
 			
 			assertRST();
 			deassertRST();
@@ -689,7 +683,7 @@ int main(void)
 		
 		case 'd':
 		
-			uart0Puts_p(7);
+			//uart0Puts_p(7);
 			
 			assertRST();
 			deassertRST();
