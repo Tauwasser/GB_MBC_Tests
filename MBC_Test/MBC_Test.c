@@ -233,6 +233,57 @@ void uart0Puts_p(const uint8_t ix) {
 	
 }
 
+void uart0Printf(const char *ptr, ...) {
+	
+	register uint8_t ch = 0xFFu;
+	uint16_t tmp;
+	va_list ap;
+	va_start(ap, ptr);
+	
+	while (ch = *ptr) {
+		
+		if (ch == '%') {
+			ptr++;
+			ch = pgm_read_byte(ptr++);
+			
+			switch (ch) {
+				case 'h':
+				tmp = va_arg(ap, int);
+				write_usart_hex(tmp);
+				break;
+				case 'H':
+				tmp = va_arg(ap, int);
+				write_usart_hex(tmp >> 8);
+				write_usart_hex(tmp & 0xFFu);
+				break;
+				case 'b':
+				tmp = va_arg(ap, int);
+				if (tmp)
+				while (uart0Putch('1') < 0);
+				else
+				while (uart0Putch('0') < 0);
+				break;
+				case '%':
+				while (uart0Putch('%') < 0);
+				break;
+				default:
+				while (uart0Putch('%') < 0);
+				while (uart0Putch(ch) < 0);
+				if (ch == '0')
+				ptr--;
+				break;
+			}
+			
+			continue;
+		}
+		
+		while (uart0Putch(ch) < 0);
+		ptr++;
+	}
+	va_end(ap);
+	
+}
+
 void uart0Printf_p(const uint8_t ix, ...) {
 	
 	register const char* ptr = (PGM_P) pgm_read_word(&str_tbl[ix]);
