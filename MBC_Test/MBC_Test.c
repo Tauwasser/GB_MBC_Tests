@@ -335,6 +335,28 @@ uint8_t mmm01_check_getAA(struct mmm01_settings *s, uint16_t addr, uint8_t romb,
 
 int mmm01_check_map(struct mmm01_settings *s) {
 	
+	uint8_t aa;
+	uint8_t ext_aa;
+	uint16_t ra;
+	uint16_t ext_ra;
+	uint8_t err;
+	
+	/* check initial settings after map */
+	putAddrCS(0x0000);
+	err = 0x00u;
+	ext_aa = getAA();
+	ext_ra = getRA();
+	aa = mmm01_check_getAA(s, 0x0000u, s->romb, s->ramb);
+	ra = mmm01_check_getRA(s, 0x0000u, s->romb, s->ramb);
+	
+	uart0Printf_p(14, 0x0000, ext_aa, ext_ra, aa, ra);
+		
+	err |= ext_aa != aa;
+	err |= ext_ra != ra;
+		
+	if (err)
+		return err;
+		
 	return 0;
 	
 }
@@ -722,8 +744,6 @@ int main(void)
 					uart0Puts("Fail");
 				else
 					uart0Puts("Pass");
-				
-				printMMM01Status();
 				
 			}
 			break;
